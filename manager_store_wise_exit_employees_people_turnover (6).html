@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>People Turnover – Branch & Level Wise (New Joining & Exit)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+body{font-family:Arial;background:#f4f6f9;padding:20px}
+h1{color:#004a99}
+.card{background:#fff;padding:15px;border-radius:10px;box-shadow:0 4px 10px rgba(0,0,0,.1);margin-bottom:20px}
+input,button{padding:8px;margin:5px}
+button{background:#004a99;color:#fff;border:none;border-radius:6px;cursor:pointer}
+button:hover{opacity:.9}
+table{width:100%;border-collapse:collapse;margin-top:15px}
+th,td{border:1px solid #ccc;padding:8px}
+th{background:#004a99;color:#fff}
+</style>
+</head>
+<body>
+
+<h1>People Turnover – Branch Wise Level Report</h1>
+
+<div class="card">
+<h3>Upload All Employees File</h3>
+<input type="file" id="fileInput" accept=".xlsx,.xls">
+<button onclick="processData()">Generate Report</button>
+</div>
+
+<div class="card">
+<h3>New Joining – Branch / Month / Level</h3>
+<button onclick="downloadExcel('new')">Download New Joining Excel</button>
+<p><i>Preview removed. File will be generated directly.</i></p>
+</div>
+
+<div class="card">
+<h3>Exit Employees – Branch / Month / Level</h3>
+<button onclick="downloadExcel('exit')">Download Exit Excel</button>
+<p><i>Preview removed. File will be generated directly.</i></p>
+</div>
+
+<script>
+let allData=[], newRows=[], exitRows=[];
+
+const levelMap = {
+  "BARISTA":"Crew Level","CASHIER":"Crew Level","HOUSE KEEPING":"Crew Level","HOUSE KEEPING STAFF":"Crew Level","HOUSEKEEPING":"Crew Level",
+  "KITCHEN HELPER":"Crew Level","QSC TRAINER":"Crew Level","SE TEAM MEMBER":"Crew Level","SECURITY GUARD":"Crew Level",
+  "SENIOR TEAM MEMBER":"Crew Level","SENIOR TEAM MEMEBER":"Crew Level","SENIOUR TEAM MEMBER":"Crew Level","SR.TEAM MEMBER":"Crew Level",
+  "TEAM MAMBER":"Crew Level","TEAM MEMBER":"Crew Level","TEAM MEMBERS":"Crew Level","TEAM MEMEBR":"Crew Level","TEAM NAMBAR":"Crew Level",
+  "TEAM.MEMBER":"Crew Level","TEEM MEMBAR":"Crew Level","TIME MEMBER":"Crew Level","TM":"Crew Level","TRAINER":"Crew Level","UT":"Crew Level",
+
+  "ASSOCIATE":"Head Office Level","ACCOUNTANT":"Head Office Level","ACCOUNTS ASSISTANT":"Head Office Level","AREA LEAD":"Head Office Level",
+  "AREA MANAGER":"Head Office Level","ASSISTANT AREA MANAGER":"Head Office Level","ASSISTANT CHEF":"Head Office Level",
+  "ASSISTANT GENERAL MANAGER":"Head Office Level","ASSISTANT MANAGER":"Head Office Level",
+  "ASSISTANT MANAGER MARKETING":"Head Office Level","ASSISTENT MANGER":"Head Office Level","AUDIT ASSISTANT":"Head Office Level",
+  "DEPUTY GENERAL MANAGER":"Head Office Level","DEPUTY MANAGER":"Head Office Level","DIRECTOR":"Head Office Level",
+  "DIRECTOR HR":"Head Office Level","EXECUTIVE":"Head Office Level","EXECUTIVE ASSISTANT":"Head Office Level",
+  "GENERAL MANAGER":"Head Office Level","HR EXCUTIVE":"Head Office Level","HR EXECUTIVE":"Head Office Level",
+  "HR MANAGER":"Head Office Level","JUNIOR EXECUTIVE":"Head Office Level","MAINTENANCE EXECUTIVE":"Head Office Level",
+  "MANAGER":"Head Office Level","MARKETING MANAGER":"Head Office Level","OFFICE BOY":"Head Office Level",
+  "PILOT":"Head Office Level","PRIMARY ASSOCIATE":"Head Office Level","PRIMARY EXECUTIVE":"Head Office Level",
+  "PROJECT ASSOCIATE":"Head Office Level","SENIOR ACCOUNTANT":"Head Office Level","SENIOR AREA MANAGER":"Head Office Level",
+  "SENIOR ASSOCIATE":"Head Office Level","SENIOR EXECUTIVE":"Head Office Level","SENIOR GRAFIC DESIGNER":"Head Office Level",
+  "SENIOR HR EXECUTIVE":"Head Office Level","SENIOR MANAGER":"Head Office Level",
+
+  "ASSISTANT RESTAURANT MANAGER":"Manager Level","ASSOCIATE MANAGER":"Manager Level","MANAGEMENT TRAINEE":"Manager Level",
+  "RESTAURANT MANAGER":"Manager Level","RESTURANT MANAGER":"Manager Level","SHIFT MANAGER":"Manager Level","SHIFT MANGER":"Manager Level"
+};
+
+fileInput.addEventListener('change',e=>{
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:true});
+    allData=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:""});
+  }
+  reader.readAsArrayBuffer(e.target.files[0]);
+});
+
+function excelDateToJS(d){
+  if(d instanceof Date) return d;
+  if(typeof d === 'number') return new Date(Math.round((d-25569)*86400*1000));
+  if(typeof d === 'string' && d.includes('-')){
+    const p=d.split('-');
+    if(p.length===3) return new Date(p[2],p[1]-1,p[0]);
+  }
+  return null;
+}
+
+function processData(){
+  newRows=[]; exitRows=[];
+  const newMap={}, exitMap={};
+
+  allData.forEach(r=>{
+    const branch = r['Branch'] || 'Blank';
+    const designation = (r['Designation'] || 'Blank').toString().trim();
+    const desKey = designation.toUpperCase();
+    const level = levelMap[desKey] || 'Blank';
+
+    const doj = excelDateToJS(r['DOJ']);
+    if(doj){
+      const my = doj.toLocaleString('en-IN',{month:'short',year:'numeric'});
+      const key = `${branch}|${my}|${designation}|${level}`;
+      newMap[key] = (newMap[key] || 0) + 1;
+    }
+
+    const dol = excelDateToJS(r['DOL']);
+    if(dol){
+      const my = dol.toLocaleString('en-IN',{month:'short',year:'numeric'});
+      const remarks = r['Leaving Remarks'] || '';
+      const key = `${branch}|${my}|${designation}|${level}|${remarks}`;
+      exitMap[key] = (exitMap[key] || 0) + 1;
+    }
+  });
+
+  for(const k in newMap){
+    const [b,m,d,l] = k.split('|');
+    newRows.push({
+      Branch: b,
+      'Month-Year': m,
+      Designation: d,
+      Level: l,
+      'New Joining Count': newMap[k]
+    });
+  }
+
+  for(const k in exitMap){
+    const [b,m,d,l,rem] = k.split('|');
+    exitRows.push({
+      Branch: b,
+      'Month-Year': m,
+      Designation: d,
+      Level: l,
+      'Left Employees Count': exitMap[k],
+      'Leaving Remarks': rem
+    });
+  }
+}
+
+function renderTable(id,data){
+  if(!data.length){document.getElementById(id).innerHTML='<tr><td>No Data</td></tr>';return;}
+  let h='<tr>';
+  Object.keys(data[0]).forEach(c=>h+=`<th>${c}</th>`);
+  h+='</tr>';
+  data.forEach(r=>{
+    h+='<tr>';
+    Object.values(r).forEach(v=>h+=`<td>${v}</td>`);
+    h+='</tr>';
+  });
+  document.getElementById(id).innerHTML=h;
+}
+
+function downloadExcel(type){
+  const data = type==='new'?newRows:exitRows;
+  if(!data.length){alert('No data to download');return;}
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb,ws,type==='new'?'New Joining':'Exit Employees');
+  XLSX.writeFile(wb,`People_Turnover_${type}.xlsx`);
+}
+</script>
+</body>
+</html>
